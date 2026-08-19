@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { checkNextAction, MAX_NEXT_ACTION } from '../validate';
+import { checkNextAction, MAX_NEXT_ACTION, MIN_NEXT_ACTION_WORDS } from '../validate';
+import { wordCount } from '../util';
 
 type Props = {
   projectName: string;
@@ -12,8 +13,8 @@ type Props = {
 };
 
 /**
- * The only input in the app that argues back. A vague entry is refused
- * outright; a first word that does not look like a verb asks once, then yields.
+ * The only input in the app that argues back. The button is never disabled:
+ * a rejection has to say what to do instead, which a dead control cannot.
  */
 export default function NextActionField({
   projectName,
@@ -46,6 +47,7 @@ export default function NextActionField({
     setMessage(result.message);
   };
 
+  const words = wordCount(value);
   const left = MAX_NEXT_ACTION - value.length;
 
   return (
@@ -70,7 +72,11 @@ export default function NextActionField({
           }
         }}
       />
-      <p className="counter">{left} characters left</p>
+      <p className="counter" aria-live="polite">
+        {words < MIN_NEXT_ACTION_WORDS
+          ? `${words} of ${MIN_NEXT_ACTION_WORDS} words`
+          : `${words} words · ${left} characters left`}
+      </p>
       {message && (
         <p className="notice" role="status">
           {message}

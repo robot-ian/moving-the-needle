@@ -7,6 +7,7 @@ import { compress } from '../images';
 import { requestPersistenceOnce, savePending } from '../store';
 import { useNoExit } from '../hooks';
 import { uid, wordCount } from '../util';
+import { checkDid, MIN_DID_WORDS } from '../validate';
 import NextActionField from './NextActionField';
 
 const MAX_ATTACHMENTS = 4;
@@ -34,6 +35,7 @@ export default function CloseOut({ db, view, mutate, go, onStorageError }: Props
   const [linkOpen, setLinkOpen] = useState(false);
   const [linkUrl, setLinkUrl] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
+  const [didError, setDidError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -88,6 +90,32 @@ export default function CloseOut({ db, view, mutate, go, onStorageError }: Props
       if (item && item.kind === 'image') URL.revokeObjectURL(item.preview);
       return d.filter((x) => x.key !== key);
     });
+
+  const didWords = wordCount(did);
+
+  const submitDid = () => {
+    const result = checkDid(did);
+    if (result.status === 'ok') {
+      setDidError(null);
+      setStep(1);
+      return;
+    }
+    setDidError(result.message);
+  };
+
+  /**
+   * The one way out. It writes nothing at all: no entry, no nextAction, no
+   * lastTouchedAt, and deliberately no draft. A half-logged session you mean to
+   * finish later is the exact loose thread this app exists to prevent.
+   */
+  const discard = () => {
+    const ok = window.confirm(
+      'Discard this session? Nothing will be logged and your next action stays as it was.',
+    );
+    if (!ok) return;
+    savePending(null);
+    go({ name: 'home' });
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -159,17 +187,27 @@ export default function CloseOut({ db, view, mutate, go, onStorageError }: Props
           value={did}
           autoFocus
           autoCapitalize="sentences"
-          onChange={(e) => setDid(e.target.value)}
+          onChange={(e) => {
+            setDid(e.target.value);
+            setDidError(null);
+          }}
         />
         {step === 0 && (
-          <button
-            type="button"
-            className="btn"
-            disabled={wordCount(did) < 3}
-            onClick={() => setStep(1)}
-          >
-            Next
-          </button>
+          <>
+            <p className="counter" aria-live="polite">
+              {didWords < MIN_DID_WORDS
+                ? `${didWords} of ${MIN_DID_WORDS} words`
+                : `${didWords} ${didWords === 1 ? 'word' : 'words'}`}
+            </p>
+            {didError && (
+              <p className="notice" role="status">
+                {didError}
+              </p>
+            )}
+            <button type="button" className="btn" onClick={submitDid}>
+              Next
+            </button>
+          </>
         )}
       </div>
 
@@ -303,6 +341,12 @@ export default function CloseOut({ db, view, mutate, go, onStorageError }: Props
           </div>
         </>
       )}
+
+      <footer className="closeout-foot">
+        <button type="button" className="link discard" onClick={discard}>
+          Discard this session
+        </button>
+      </footer>
     </main>
   );
 }
