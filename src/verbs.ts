@@ -39,3 +39,26 @@ export function looksLikeVerb(firstWord: string): boolean {
   if (w.startsWith('re') && SET.has(w.slice(2))) return true;
   return false;
 }
+
+/**
+ * If the word is provably the -ing form of a verb we know, returns that verb.
+ * "making" gives "make"; "wiring" gives "wire"; "running" gives "run".
+ *
+ * Deliberately narrow. It only fires when stripping -ing lands on a listed
+ * verb, so genuine imperatives that happen to end in -ing — ring, bring,
+ * string, sing — are left alone and fall through to the ordinary check.
+ */
+export function gerundBase(firstWord: string): string | null {
+  const w = firstWord.toLowerCase().replace(/[^a-z]/g, '');
+  if (w.length < 5 || !w.endsWith('ing')) return null;
+
+  const stem = w.slice(0, -3);
+  const candidates = [stem, stem + 'e'];
+  // "running" -> "runn" -> "run", "planning" -> "plann" -> "plan"
+  if (stem.length > 1 && stem[stem.length - 1] === stem[stem.length - 2]) {
+    candidates.push(stem.slice(0, -1));
+  }
+
+  for (const candidate of candidates) if (SET.has(candidate)) return candidate;
+  return null;
+}

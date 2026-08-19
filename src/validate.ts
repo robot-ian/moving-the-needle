@@ -1,4 +1,4 @@
-import { looksLikeVerb } from './verbs';
+import { gerundBase, looksLikeVerb } from './verbs';
 import { wordCount } from './util';
 
 export const MAX_NEXT_ACTION = 90;
@@ -57,7 +57,20 @@ export function checkNextAction(raw: string, projectName: string): Check {
   if (wordCount(text) < MIN_NEXT_ACTION_WORDS) return { status: 'block', message: TOO_SHORT };
   if (text.length > MAX_NEXT_ACTION) return { status: 'block', message: TOO_LONG };
 
-  if (!looksLikeVerb(text.split(/\s+/)[0])) return { status: 'confirm', message: NOT_A_VERB };
+  const first = text.split(/\s+/)[0];
+
+  // A gerund describes the work; it is never something you can start doing.
+  // Blocked outright rather than merely questioned, because "yes, that is the
+  // action" is one tap and this class of entry is always wrong.
+  const base = gerundBase(first);
+  if (base) {
+    return {
+      status: 'block',
+      message: `Start with the verb itself — “${base}”, not “${first.toLowerCase()}”.`,
+    };
+  }
+
+  if (!looksLikeVerb(first)) return { status: 'confirm', message: NOT_A_VERB };
 
   return { status: 'ok' };
 }
