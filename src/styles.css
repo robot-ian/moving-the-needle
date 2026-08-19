@@ -10,10 +10,61 @@
   --radius: 12px;
   --tap: 48px;
 
+  /* River, night. Overridden per time of day below; never by elapsed time. */
+  --river-sky: #243349;
+  --river-ridge-far: #1b2a3d;
+  --river-ridge-near: #131f2e;
+  --river-bank: #0d1721;
+  --river-veg: #2f4038;
+  --river-stone: #2a343f;
+  --river-water-1: #14303f;
+  --river-water-2: #1a3b4c;
+  --river-water-3: #0f2634;
+  --river-hull: #a06a3c;
+  --river-sail: #ece0c2;
+  --river-current: rgba(255, 255, 255, 0.09);
+  --river-marker: #b9c4d0;
+
   color-scheme: dark;
   font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   font-synthesis-weight: none;
   -webkit-text-size-adjust: 100%;
+}
+
+[data-tod='dawn'] {
+  --river-sky: #3b3b55;
+  --river-ridge-far: #2e3049;
+  --river-ridge-near: #22253e;
+  --river-bank: #181c30;
+  --river-veg: #334040;
+  --river-stone: #2f3548;
+  --river-water-1: #1e3446;
+  --river-water-2: #264257;
+  --river-water-3: #182c3c;
+}
+
+[data-tod='day'] {
+  --river-sky: #4a6a8a;
+  --river-ridge-far: #3a5670;
+  --river-ridge-near: #2b4157;
+  --river-bank: #1f3143;
+  --river-veg: #3d5647;
+  --river-stone: #3a4a58;
+  --river-water-1: #20455a;
+  --river-water-2: #2a5570;
+  --river-water-3: #193949;
+}
+
+[data-tod='dusk'] {
+  --river-sky: #2f3048;
+  --river-ridge-far: #242840;
+  --river-ridge-near: #191e32;
+  --river-bank: #121627;
+  --river-veg: #2c3a38;
+  --river-stone: #282f3e;
+  --river-water-1: #182f3e;
+  --river-water-2: #1f3c4f;
+  --river-water-3: #122735;
 }
 
 * {
@@ -226,17 +277,59 @@ a {
 
 /* ---------- home ---------- */
 
-.river {
-  height: 132px;
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: #141b24;
-}
+/* ---------- the river ---------- */
 
-.river canvas {
+.river {
   display: block;
   width: 100%;
-  height: 100%;
+  height: auto;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+@keyframes river-drift {
+  to {
+    transform: translateX(-60px);
+  }
+}
+
+@keyframes river-current-drift {
+  to {
+    transform: translateX(var(--drift));
+  }
+}
+
+@keyframes river-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-1.1px);
+  }
+}
+
+.river-flow {
+  animation-name: river-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.river-current {
+  animation-name: river-current-drift;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+
+.river-boat {
+  animation: river-bob 4.5s ease-in-out infinite;
+}
+
+/* Nothing moves while the tab is hidden. */
+html.tab-hidden .river-flow,
+html.tab-hidden .river-current,
+html.tab-hidden .river-boat {
+  animation-play-state: paused;
 }
 
 .cards {
@@ -249,7 +342,23 @@ a {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 18px 18px 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.card-body {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  width: 100%;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -784,6 +893,53 @@ a {
 
 .project-admin .input {
   flex: 1;
+}
+
+/* ---------- project detail ---------- */
+
+.project-name {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.11em;
+  color: var(--muted);
+}
+
+.project-action {
+  font-size: clamp(1.5rem, 6.6vw, 2rem);
+  line-height: 1.22;
+  font-weight: 500;
+  letter-spacing: -0.012em;
+  text-wrap: balance;
+}
+
+.project .river {
+  border-radius: var(--radius);
+}
+
+.project-foot {
+  display: flex;
+  justify-content: center;
+  padding-top: 8px;
+}
+
+/* ---------- close-out exit ---------- */
+
+.closeout-foot {
+  display: flex;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+/* An exit, not an option. Deliberately much quieter than Next. */
+.discard {
+  font-size: 0.84rem;
+  color: var(--faint);
+  text-decoration-color: transparent;
+}
+
+.discard:hover {
+  color: var(--muted);
+  text-decoration-color: var(--line);
 }
 
 @media (prefers-reduced-motion: reduce) {
