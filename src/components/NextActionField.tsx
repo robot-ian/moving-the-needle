@@ -10,6 +10,9 @@ type Props = {
   onAccept: (v: string) => void;
   submitLabel: string;
   autoFocus?: boolean;
+  id?: string;
+  /** Only the correction window passes this. Close-out has no way out here. */
+  onCancel?: () => void;
 };
 
 /**
@@ -24,6 +27,8 @@ export default function NextActionField({
   onAccept,
   submitLabel,
   autoFocus,
+  id = 'next-action',
+  onCancel,
 }: Props) {
   const [message, setMessage] = useState<string | null>(null);
   const [awaitingConfirm, setAwaitingConfirm] = useState(false);
@@ -52,11 +57,11 @@ export default function NextActionField({
 
   return (
     <div className="field">
-      <label className="field-label" htmlFor="next-action">
+      <label className="field-label" htmlFor={id}>
         {label}
       </label>
       <textarea
-        id="next-action"
+        id={id}
         className="input input-action"
         value={value}
         onChange={(e) => change(e.target.value)}
@@ -85,6 +90,11 @@ export default function NextActionField({
       <button type="button" className="btn" onClick={submit}>
         {awaitingConfirm ? 'Yes, that is the action' : submitLabel}
       </button>
+      {onCancel && (
+        <button type="button" className="link" onClick={onCancel}>
+          Cancel
+        </button>
+      )}
     </div>
   );
 }

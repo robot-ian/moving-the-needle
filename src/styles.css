@@ -916,6 +916,42 @@ html.tab-hidden .river-boat {
   border-radius: var(--radius);
 }
 
+/* Title plus its pencil. The pencil is quiet and only ever sits here. */
+.titled {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.titled > p {
+  flex: 1;
+  min-width: 0;
+}
+
+.pencil {
+  appearance: none;
+  background: none;
+  border: 0;
+  padding: 10px;
+  margin: -10px -10px -10px 0;
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--faint);
+  cursor: pointer;
+  flex: none;
+}
+
+.pencil:hover {
+  color: var(--text);
+}
+
+.input-name {
+  font-size: 1.05rem;
+}
+
 .project-foot {
   display: flex;
   justify-content: center;

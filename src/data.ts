@@ -2,9 +2,16 @@ import type { Attachment, DB, LogEntry, Project } from './types';
 import { uid } from './util';
 
 /**
- * nextAction is written in exactly two places in this codebase: createProject
- * and closeOut, both below. There is no third. See the README.
+ * nextAction is written in exactly three places in this codebase, all below:
+ * createProject, closeOut, and correctNextAction. There is no fourth.
+ *
+ * correctNextAction is a correction window, not an edit button. It refuses
+ * unless the action was written within the last 24 hours and no session has
+ * been completed since. The check lives here rather than only in the UI, so
+ * hiding or showing a pencil cannot widen it. See the README.
  */
+
+export const CORRECTION_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 export function createProject(db: DB, name: string, nextAction: string): { db: DB; project: Project } {
   const now = new Date().toISOString();
@@ -56,6 +63,40 @@ export function closeOut(db: DB, input: CloseOutInput): DB {
           }
         : p,
     ),
+  };
+}
+
+/**
+ * When the current nextAction was written: at the close-out that set it, or at
+ * creation for a project with no sessions yet. A correction deliberately does
+ * not move this, so correcting cannot roll the window forward indefinitely.
+ */
+export function nextActionSetAt(project: Project): string {
+  return project.log.length ? project.log[project.log.length - 1].at : project.createdAt;
+}
+
+export function sessionsSinceNextActionSet(project: Project): number {
+  const at = nextActionSetAt(project);
+  return project.log.filter((e) => e.at > at).length;
+}
+
+export function canCorrectNextAction(project: Project, now: number = Date.now()): boolean {
+  if (sessionsSinceNextActionSet(project) > 0) return false;
+  const setAt = new Date(nextActionSetAt(project)).getTime();
+  if (!Number.isFinite(setAt)) return false;
+  const elapsed = now - setAt;
+  return elapsed >= 0 && elapsed < CORRECTION_WINDOW_MS;
+}
+
+/** Refuses outside the window. Writes no log entry and does not touch lastTouchedAt. */
+export function correctNextAction(db: DB, projectId: string, text: string): DB {
+  const project = db.projects.find((p) => p.id === projectId);
+  if (!project || !canCorrectNextAction(project)) return db;
+  const trimmed = text.trim();
+  if (!trimmed) return db;
+  return {
+    ...db,
+    projects: db.projects.map((p) => (p.id === projectId ? { ...p, nextAction: trimmed } : p)),
   };
 }
 
