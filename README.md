@@ -79,5 +79,14 @@ npm run build
 `npm run icons` regenerates the PWA icons from `scripts/make-icons.mjs` (a hand-rolled PNG
 encoder, so the project keeps no image toolchain). `build` runs it, typechecks, and then builds.
 
+### The base path
+
+Vite needs to know the URL prefix the app will be served from, and a wrong value produces a blank
+white page rather than an error: `index.html` requests its assets under the wrong prefix, they
+404, and nothing runs. `vite.config.ts` picks it automatically — `/moving-the-needle/` when
+`GITHUB_ACTIONS` is set (Pages serves projects from a sub-path), `/` everywhere else, which covers
+Vercel, Netlify, and `vite preview`. Set `BASE_PATH` to override both if a host needs some other
+prefix.
+
 Stack: Vite, React, TypeScript, one CSS file, and `fflate` for the export zip. No router, no state
 library, no date library, no component library, no design system.

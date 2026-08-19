@@ -2,23 +2,28 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
-// Project pages live at /moving-the-needle/. Relative asset paths keep the
-// build working from a file server or a sub-path alike.
+// GitHub Pages serves this from a project sub-path; everywhere else (Vercel,
+// Netlify, `vite preview`) it is served from the domain root. Getting this
+// wrong produces a blank page: index.html asks for assets under the wrong
+// prefix, they 404, and nothing runs.
+// BASE_PATH overrides both, for a host that needs some third prefix.
+const base = process.env.BASE_PATH ?? (process.env.GITHUB_ACTIONS ? '/moving-the-needle/' : '/');
+
 export default defineConfig({
-  base: '/moving-the-needle/',
+  base,
   plugins: [
     react(),
     VitePWA({
       registerType: 'autoUpdate',
       workbox: {
         globPatterns: ['**/*.{js,css,html,png,svg,woff2}'],
-        navigateFallback: '/moving-the-needle/index.html',
+        navigateFallback: `${base}index.html`,
       },
       manifest: {
         name: 'Moving the Needle',
         short_name: 'Needle',
         description: 'After a gap, the one physical thing to do next.',
-        id: '/moving-the-needle/',
+        id: base,
         start_url: '.',
         scope: '.',
         display: 'standalone',
