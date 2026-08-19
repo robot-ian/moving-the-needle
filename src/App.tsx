@@ -16,10 +16,13 @@ import CloseOut from './components/CloseOut';
 import Log from './components/Log';
 import Parking from './components/Parking';
 import Settings from './components/Settings';
+import ProjectDetail from './components/ProjectDetail';
+import { timeOfDay } from './river';
 
 export type View =
   | { name: 'home' }
   | { name: 'new' }
+  | { name: 'project'; projectId: string }
   | { name: 'session'; projectId: string; floor: boolean; coldStart: boolean }
   | { name: 'coldstart'; projectId: string }
   | { name: 'closeout'; projectId: string; durationMin: number; wasFloor: boolean; wasColdStart: boolean }
@@ -51,6 +54,26 @@ export default function App() {
     void cleanOrphans(db);
     // Once, on load. Later mutations cannot orphan anything the user still needs.
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Every river reads its colours from CSS, so the sky changes with the hour
+  // without a single per-card timer. Never with days since anything.
+  useEffect(() => {
+    const root = document.documentElement;
+    const paint = () => {
+      root.dataset.tod = timeOfDay(new Date().getHours());
+    };
+    paint();
+    const id = window.setInterval(paint, 10 * 60 * 1000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  // One flag for the whole page: the water pauses while the tab is hidden.
+  useEffect(() => {
+    const sync = () => document.documentElement.classList.toggle('tab-hidden', document.hidden);
+    sync();
+    document.addEventListener('visibilitychange', sync);
+    return () => document.removeEventListener('visibilitychange', sync);
   }, []);
 
   // Written synchronously on every mutation. The ref keeps the writer honest
@@ -96,6 +119,9 @@ export default function App() {
 
       {view.name === 'home' && <Home db={db} go={go} />}
       {view.name === 'new' && <NewProject mutate={mutate} go={go} />}
+      {view.name === 'project' && (
+        <ProjectDetail db={db} projectId={view.projectId} mutate={mutate} go={go} />
+      )}
       {view.name === 'session' && <Session db={db} view={view} mutate={mutate} go={go} />}
       {view.name === 'coldstart' && <ColdStart db={db} projectId={view.projectId} go={go} />}
       {view.name === 'closeout' && (
