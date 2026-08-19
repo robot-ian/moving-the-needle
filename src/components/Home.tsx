@@ -1,7 +1,6 @@
 import type { DB } from '../types';
 import type { View } from '../App';
 import { isColdStart, lastTouchedLabel } from '../util';
-import { totalSessions } from '../store';
 import River from './River';
 
 export default function Home({ db, go }: { db: DB; go: (v: View) => void }) {
@@ -9,8 +8,6 @@ export default function Home({ db, go }: { db: DB; go: (v: View) => void }) {
 
   return (
     <main className="screen home">
-      <River sessions={totalSessions(db)} />
-
       {active.length === 0 ? (
         <p className="empty">Nothing here yet. Add one thing you’ve stopped doing.</p>
       ) : (
@@ -19,9 +16,16 @@ export default function Home({ db, go }: { db: DB; go: (v: View) => void }) {
             const cold = isColdStart(project.lastTouchedAt);
             return (
               <li key={project.id} className="card">
-                <p className="card-project">{project.name}</p>
-                <p className="card-action">{project.nextAction}</p>
-                <p className="card-touched">{lastTouchedLabel(project.lastTouchedAt)}</p>
+                <button
+                  type="button"
+                  className="card-body"
+                  onClick={() => go({ name: 'project', projectId: project.id })}
+                >
+                  <span className="card-project">{project.name}</span>
+                  <span className="card-action">{project.nextAction}</span>
+                  <River projectId={project.id} sessions={project.log.length} />
+                  <span className="card-touched">{lastTouchedLabel(project.lastTouchedAt)}</span>
+                </button>
                 <button
                   type="button"
                   className="btn"

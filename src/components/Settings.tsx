@@ -4,7 +4,7 @@ import type { View } from '../App';
 import { exportJson, exportZip, importFile } from '../backup';
 import { renameProject, setArchived } from '../data';
 import { totalBytes } from '../idb';
-import { saveDB, savePending, saveRiverSeen, totalSessions } from '../store';
+import { markAllRiverSeen, saveDB, savePending } from '../store';
 import { APP_VERSION, REPO_URL } from '../config';
 
 type Props = {
@@ -34,7 +34,7 @@ export default function Settings({ db, setDb, mutate, go }: Props) {
       const result = await importFile(file);
       saveDB(result.db);
       savePending(null);
-      saveRiverSeen(totalSessions(result.db));
+      markAllRiverSeen(result.db);
       setDb(result.db);
       setNote(
         result.imagesMissing > 0

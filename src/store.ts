@@ -2,7 +2,7 @@ import type { DB, Pending, Project } from './types';
 
 const KEY = 'moving-the-needle/v1';
 const PENDING_KEY = 'moving-the-needle/pending';
-const RIVER_KEY = 'moving-the-needle/river-seen';
+const RIVER_KEY = 'moving-the-needle/river-seen-v2';
 const PERSIST_KEY = 'moving-the-needle/persist-asked';
 
 export const emptyDB = (): DB => ({ schemaVersion: 1, projects: [], parking: [] });
@@ -76,21 +76,42 @@ export function savePending(p: Pending | null): void {
 }
 
 /**
- * How far the river had already been drawn last time Home was shown. Used only
- * to decide whether to animate the one advance. Never affects boat position.
+ * Per project, how far its river had already been drawn last time it was on
+ * screen. Used only to decide whether to animate the one advance. It never
+ * feeds boat position, which is always the project's session count.
  */
-export function loadRiverSeen(): number {
+function seenMap(): Record<string, number> {
   try {
-    const n = Number(localStorage.getItem(RIVER_KEY));
-    return Number.isFinite(n) && n >= 0 ? n : 0;
+    const raw = localStorage.getItem(RIVER_KEY);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return parsed && typeof parsed === 'object' ? (parsed as Record<string, number>) : {};
   } catch {
-    return 0;
+    return {};
   }
 }
 
-export function saveRiverSeen(n: number): void {
+export function loadRiverSeen(projectId: string): number {
+  const n = seenMap()[projectId];
+  return Number.isFinite(n) && n >= 0 ? n : 0;
+}
+
+export function saveRiverSeen(projectId: string, n: number): void {
   try {
-    localStorage.setItem(RIVER_KEY, String(n));
+    const map = seenMap();
+    if (map[projectId] === n) return;
+    map[projectId] = n;
+    localStorage.setItem(RIVER_KEY, JSON.stringify(map));
+  } catch {
+    /* cosmetic only */
+  }
+}
+
+/** After an import, every boat is already where the data says. Nothing to replay. */
+export function markAllRiverSeen(db: DB): void {
+  try {
+    const map: Record<string, number> = {};
+    for (const p of db.projects) map[p.id] = p.log.length;
+    localStorage.setItem(RIVER_KEY, JSON.stringify(map));
   } catch {
     /* cosmetic only */
   }

@@ -1,92 +1,220 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { loadRiverSeen, saveRiverSeen } from '../store';
 import { usePrefersReducedMotion } from '../hooks';
-import { drawScene, paletteFor, STEP } from '../river';
+import {
+  buildScene,
+  currentLines,
+  PARALLAX,
+  STEP,
+  waterPath,
+  type Feature,
+  type Layer,
+} from '../river';
 
-const ADVANCE_MS = 1500;
+const ADVANCE = 'transform 1.5s cubic-bezier(0.22, 1, 0.36, 1)';
 
-export default function River({ sessions }: { sessions: number }) {
-  const wrapRef = useRef<HTMLDivElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
+type Props = {
+  projectId: string;
+  /** Completed sessions for this project. The only input to boat position. */
+  sessions: number;
+  width?: number;
+  height?: number;
+};
+
+export default function River({ projectId, sessions, width = 360, height = 90 }: Props) {
   const reduced = usePrefersReducedMotion();
+  const scene = useMemo(() => buildScene(sessions, width, height), [sessions, width, height]);
+  const water = useMemo(() => {
+    const top = scene.waterY + 2;
+    const band = (height - top) / 3;
+    return [0, 1, 2].map((b) => waterPath(width, height, top + b * band, b * 2.1));
+  }, [scene.waterY, width, height]);
+  const currents = useMemo(
+    () => currentLines(width, height, scene.waterY),
+    [width, height, scene.waterY],
+  );
+
+  // The one advance: each parallax layer slides back by its own share, so the
+  // boat reads as having moved up the river rather than the river having jumped.
+  const [slide, setSlide] = useState<{ offset: number; snap: boolean }>({ offset: 0, snap: true });
+  const doneRef = useRef<string | null>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const wrap = wrapRef.current;
-    if (!canvas || !wrap) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const key = `${projectId}:${sessions}`;
+    if (doneRef.current === key) return;
+    doneRef.current = key;
 
-    let width = 0;
-    let height = 0;
-    const resize = () => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
-      width = wrap.clientWidth;
-      height = wrap.clientHeight;
-      canvas.width = Math.max(1, Math.round(width * dpr));
-      canvas.height = Math.max(1, Math.round(height * dpr));
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    };
-    resize();
-    const ro = new ResizeObserver(() => {
-      resize();
-      if (reduced) draw(performance.now());
-    });
-    ro.observe(wrap);
+    const seen = loadRiverSeen(projectId);
+    saveRiverSeen(projectId, sessions);
+    if (reduced) return;
 
-    // The boat advances once, from where it was last seen to where it is now.
-    // Both numbers are session counts; neither can fall on its own.
-    const seen = loadRiverSeen();
-    const from = Math.min(seen, sessions);
-    const advancing = !reduced && sessions > from;
-    const startedAt = performance.now();
-    saveRiverSeen(sessions);
+    const gained = sessions - Math.min(seen, sessions);
+    if (gained <= 0) return;
 
-    const palette = paletteFor(new Date().getHours());
-    let frame = 0;
+    setSlide({ offset: gained * STEP, snap: true });
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => setSlide({ offset: 0, snap: false })),
+    );
+  }, [projectId, sessions, reduced]);
 
-    function draw(now: number) {
-      const elapsed = now - startedAt;
-      let displayed = sessions;
-      let ripple = 0;
-      if (advancing && elapsed < ADVANCE_MS) {
-        const k = elapsed / ADVANCE_MS;
-        displayed = from + (sessions - from) * (1 - Math.pow(1 - k, 3));
-        ripple = Math.sin(k * Math.PI);
-      }
-
-      drawScene(ctx!, {
-        width,
-        height,
-        worldX: displayed * STEP,
-        time: reduced ? 6 : elapsed / 1000,
-        ripple,
-        still: reduced,
-        palette,
-      });
-
-      if (!reduced) frame = requestAnimationFrame(draw);
-    }
-
-    frame = requestAnimationFrame(draw);
-
-    // Nothing runs while the tab is hidden.
-    const onVisibility = () => {
-      cancelAnimationFrame(frame);
-      if (!document.hidden && !reduced) frame = requestAnimationFrame(draw);
-    };
-    document.addEventListener('visibilitychange', onVisibility);
-
-    return () => {
-      cancelAnimationFrame(frame);
-      document.removeEventListener('visibilitychange', onVisibility);
-      ro.disconnect();
-    };
-  }, [sessions, reduced]);
+  const layer = (name: Layer) => ({
+    transform: `translateX(${(slide.offset * PARALLAX[name]).toFixed(2)}px)`,
+    transition: slide.snap ? 'none' : ADVANCE,
+  });
 
   return (
-    <div className="river" ref={wrapRef} aria-hidden="true">
-      <canvas ref={canvasRef} />
-    </div>
+    <svg
+      className="river"
+      viewBox={`0 0 ${width} ${height}`}
+      preserveAspectRatio="xMidYMid meet"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="0" y="0" width={width} height={height} fill="var(--river-sky)" />
+
+      <g style={layer('far')}>
+        <path d={scene.ridgeFar} fill="var(--river-ridge-far)" />
+      </g>
+      <g style={layer('near')}>
+        <path d={scene.ridgeNear} fill="var(--river-ridge-near)" />
+      </g>
+      <g style={layer('bank')}>
+        <path d={scene.bank} fill="var(--river-bank)" />
+        {scene.features.map((f) => (
+          <FeatureShape key={f.id} feature={f} base={scene.waterY - 2} />
+        ))}
+      </g>
+
+      {water.map((d, i) => (
+        <g key={i} className="river-flow" style={{ animationDuration: `${9 - i * 2.4}s` }}>
+          <path d={d} fill={`var(--river-water-${i + 1})`} />
+        </g>
+      ))}
+
+      {currents.map((group, i) => (
+        <g
+          key={i}
+          className="river-current"
+          style={
+            {
+              animationDuration: `${17 - i * 4}s`,
+              '--drift': `-${width + 80}px`,
+            } as CSSProperties
+          }
+          stroke="var(--river-current)"
+          strokeWidth="1"
+          strokeLinecap="round"
+        >
+          {group.map((c, j) => (
+            <g key={j}>
+              <line x1={c.x} y1={c.y} x2={c.x + c.len} y2={c.y} />
+              <line
+                x1={c.x + width + 80}
+                y1={c.y}
+                x2={c.x + c.len + width + 80}
+                y2={c.y}
+              />
+            </g>
+          ))}
+        </g>
+      ))}
+
+      {/* Where the boat sat before the most recent session. */}
+      {scene.markerX !== null && (
+        <g style={layer('bank')} opacity="0.3">
+          <line
+            x1={scene.markerX}
+            y1={scene.boatY - 5}
+            x2={scene.markerX}
+            y2={scene.boatY + 1}
+            stroke="var(--river-marker)"
+            strokeWidth="1.2"
+            strokeLinecap="round"
+          />
+          <ellipse
+            cx={scene.markerX}
+            cy={scene.boatY + 2}
+            rx="3.4"
+            ry="1.1"
+            fill="none"
+            stroke="var(--river-marker)"
+            strokeWidth="0.9"
+          />
+        </g>
+      )}
+
+      <g transform={`translate(${scene.boatX} ${scene.boatY.toFixed(1)})`}>
+        <g className="river-boat">
+          <path d="M -1 -5 L -1 -17 L 8 -6 Z" fill="var(--river-sail)" />
+          <line x1="-2.4" y1="-3" x2="-2.4" y2="-19" stroke="var(--river-sail)" strokeWidth="1.3" />
+          <path d="M -11 -4.5 L 11 -4.5 L 7.5 2 L -7.5 2 Z" fill="var(--river-hull)" />
+        </g>
+      </g>
+    </svg>
+  );
+}
+
+function FeatureShape({ feature, base }: { feature: Feature; base: number }) {
+  const { kind, x, j } = feature;
+
+  if (kind === 'reed') {
+    const blades = [0, 1, 2, 3].map((i) => {
+      const h = 8 + j * 7 + i * 1.8;
+      const dx = x + i * 2.6 - 3.5;
+      return `M ${dx.toFixed(1)} ${base + 1} Q ${(dx + 1.5).toFixed(1)} ${(base - h * 0.6).toFixed(1)} ${(dx + 3.5 + j * 2).toFixed(1)} ${(base - h).toFixed(1)}`;
+    });
+    return (
+      <path
+        d={blades.join(' ')}
+        fill="none"
+        stroke="var(--river-veg)"
+        strokeWidth="1.3"
+        strokeLinecap="round"
+      />
+    );
+  }
+
+  if (kind === 'rock') {
+    const w = 8 + j * 9;
+    const h = 4 + j * 5;
+    return (
+      <path
+        d={`M ${(x - w / 2).toFixed(1)} ${base + 1} L ${(x - w * 0.26).toFixed(1)} ${(base - h).toFixed(1)} L ${(x + w * 0.14).toFixed(1)} ${(base - h * 0.78).toFixed(1)} L ${(x + w / 2).toFixed(1)} ${base + 1} Z`}
+        fill="var(--river-stone)"
+      />
+    );
+  }
+
+  if (kind === 'tree') {
+    const h = 14 + j * 10;
+    return (
+      <g>
+        <line
+          x1={x}
+          y1={base + 1}
+          x2={x}
+          y2={base - h * 0.5}
+          stroke="var(--river-veg)"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+        />
+        <ellipse
+          cx={x}
+          cy={base - h * 0.78}
+          rx={5 + j * 3}
+          ry={4.4 + j * 2.6}
+          fill="var(--river-veg)"
+        />
+      </g>
+    );
+  }
+
+  const h = 17 + j * 12;
+  const half = 4.5 + j * 2;
+  return (
+    <path
+      d={`M ${x.toFixed(1)} ${(base - h).toFixed(1)} L ${(x + half).toFixed(1)} ${base + 1} L ${(x - half).toFixed(1)} ${base + 1} Z`}
+      fill="var(--river-veg)"
+    />
   );
 }
