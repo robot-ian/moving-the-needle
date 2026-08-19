@@ -29,17 +29,32 @@ was. It is the only way out, and it is deliberately the quietest thing on the sc
 
 ## Note to future maintainers
 
-**The absence of an edit button for `nextAction` is the feature. Do not add one.**
+**There is no general edit button for `nextAction`, and there must never be one.**
 
-`nextAction` is written in exactly two functions, both in `src/data.ts`: `createProject` and
-`closeOut`. Nothing else in the codebase assigns to it. Verify with:
+> nextAction can be corrected shortly after it is written, while the context is
+> still loaded. It cannot be rewritten after a gap. Rewriting a stale action is
+> re-planning, and re-planning is the thing this app exists to prevent.
+
+`nextAction` is written in exactly three functions, all in `src/data.ts`: `createProject`,
+`closeOut`, and `correctNextAction`. Nothing else in the codebase assigns to it. Verify with:
 
 ```bash
 grep -rn "nextAction" src --include=*.ts --include=*.tsx
 ```
 
-If you are here to add an edit affordance because it felt inconvenient once — the inconvenience is
-load-bearing. A next action you can revise outside a session is a next action you will re-plan.
+`correctNextAction` is a correction window, not an edit path. It refuses unless the action was
+written within the last 24 hours and no session has been completed since, and that check lives in
+the data layer, so changing when the pencil renders cannot widen it. A correction runs the full
+close-out validation, writes no log entry, and does not touch `lastTouchedAt`. It also does not
+move the window's anchor, so you cannot hold the window open by correcting repeatedly.
+
+Outside the window the pencil does not render at all — not greyed out, no tooltip. An affordance
+you can see is an affordance you will reach for after a gap, which is the case this whole app
+exists to prevent.
+
+If you are here to widen any of that because it felt inconvenient once — the inconvenience is
+load-bearing. A next action you can revise long after the session is a next action you will
+re-plan.
 
 ## Deliberately excluded
 
@@ -52,7 +67,8 @@ None of the following are missing by accident. Each was considered and left out.
 - Accounts, login, backend, sync, multi-user
 - Onboarding tour, tooltips, empty-state illustrations
 - Dark/light toggle, theme settings, font settings
-- Any screen that lets you change `nextAction` outside close-out
+- Any screen that lets you rewrite `nextAction` after a gap (a 24-hour correction window on the
+  project page is the only exception, and it closes on its own)
 - Configurable anything: no thresholds, no categories, no durations to tune. Every such value is
   hardcoded, because a setting is a thing to fiddle with instead of working.
 
