@@ -20,6 +20,13 @@ five-step cold start instead: open the project, re-run the last thing that worke
 entry, read the next action, do it for ten minutes. There are no exits from that screen except
 finishing it.
 
+Tapping the body of a card (anywhere but **Start**) opens that project's own page: its river
+larger, its next action, and its full log. Archiving lives at the bottom of that page.
+
+Close-out cannot be dismissed, but it can be abandoned. **Discard this session** at the bottom
+throws the whole thing away — no entry, no draft, and your previous next action left exactly as it
+was. It is the only way out, and it is deliberately the quietest thing on the screen.
+
 ## Note to future maintainers
 
 **The absence of an edit button for `nextAction` is the feature. Do not add one.**
@@ -49,10 +56,17 @@ None of the following are missing by accident. Each was considered and left out.
 - Configurable anything: no thresholds, no categories, no durations to tune. Every such value is
   hardcoded, because a setting is a thing to fiddle with instead of working.
 
-Two more, specific to the river on the home screen: it has no distance number, progress bar,
-destination, milestone, unlockable, or customisation, and it never moves backwards. The boat's
-position is `completedSessions * STEP` and nothing else — it does not read a date, a gap, or a
-session's duration, so a ten-minute floor session moves it exactly as far as a hundred-minute one.
+## The boat
+
+Every project card carries its own boat on its own stretch of river. A boat has no distance
+number, progress bar, destination, milestone, unlockable, or customisation, and it never moves
+backwards. Its position is that project's `completedSessions * STEP` and nothing else — `src/river.ts`
+does not read a date, a gap, or a session's duration, so a ten-minute floor session moves a boat
+exactly as far as a hundred-minute one. A faint marker sits where the boat was before the most
+recent session, so the last move is visible without counting anything.
+
+> The moment distance becomes a number it becomes a score, and a score across projects becomes a
+> reason to abandon the one that's behind. The boat shows movement; that is all it is for.
 
 ## Data
 
